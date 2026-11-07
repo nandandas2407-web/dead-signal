@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>DEAD_SIGNAL v1.0</title>
+<style>
+:root{color-scheme:dark;--stress:0;--hue:150;--fg:hsl(var(--hue) 85% 68%);--dim:hsl(var(--hue) 40% 30%);--bg:#050b08;--warn:#ff7a3c;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+*{box-sizing:border-box}html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font:15px/1.35 "JetBrains Mono","VT323",ui-monospace,Menlo,Consolas,monospace;overflow:hidden}
+body{text-shadow:calc(var(--stress)*3px) 0 rgba(255,0,60,.6),calc(var(--stress)*-3px) 0 rgba(0,200,255,.4)}
+#app{display:grid;height:100%;grid-template-columns:1fr 300px;grid-template-rows:auto 1fr auto;gap:6px;padding:8px;animation:shake calc(.4s) infinite;animation-play-state:paused}
+#app.hot{animation-play-state:running}
+@keyframes shake{0%{transform:translate(0,0)}25%{transform:translate(1px,-1px)}50%{transform:translate(-1px,1px)}75%{transform:translate(1px,1px)}}
+.box{border:1px solid var(--fg);padding:8px;position:relative;min-width:0}
+header{grid-column:1/3;display:flex;gap:12px;flex-wrap:wrap;justify-content:space-between;align-items:center}
+.btn{background:transparent;color:var(--fg);border:1px solid var(--fg);padding:6px 10px;font:inherit;cursor:pointer}.btn:hover{background:var(--dim)}
+#trace{height:16px;border:1px solid var(--warn);margin:4px 0}#trace i{display:block;height:100%;width:0;background:var(--warn)}
+#main{display:flex;flex-direction:column;gap:10px}
+#puzzle{font-size:20px}#puzzle b{color:#fff}
+#warn{padding:6px;text-align:center;border:1px dashed var(--warn);color:var(--warn)}
+#pacer{text-align:center;opacity:.35}#pacer.on{opacity:1}
+#rail{display:flex;flex-direction:column;gap:8px}
+video{width:100%;background:#000;aspect-ratio:4/3;object-fit:cover;filter:grayscale(1) contrast(1.1);transform:scaleX(-1)}
+.big{font-size:30px;color:#ffd27a}
+canvas{width:100%;height:110px;display:block}
+footer{grid-column:1/3;display:flex;gap:16px;flex-wrap:wrap;font-size:12px}
+#fx{position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse at center,transparent 55%,rgba(255,0,40,calc(var(--stress)*.55)) 100%),repeating-linear-gradient(0deg,rgba(0,0,0,.28) 0 1px,transparent 1px 3px);z-index:5}
+#flash{position:fixed;inset:0;background:#fff;opacity:0;pointer-events:none;z-index:6}
+#ov{position:fixed;inset:0;background:rgba(3,8,6,.96);z-index:9;display:flex;align-items:center;justify-content:center;padding:16px;text-align:left}
+#ov .card{max-width:560px;border:1px solid var(--fg);padding:18px;max-height:100%;overflow:auto}
+#ov.hide{display:none}h1{margin:0 0 8px;font-size:22px}ul{padding-left:18px;margin:8px 0}
+@media(max-width:760px){#app{grid-template-columns:1fr;overflow:auto}header,footer{grid-column:1}html,body{overflow:auto}}
+</style></head><body>
+<div id="app">
+ <header class="box"><span>SYS: DEAD_SIGNAL v1.0</span><span id="sector">SECTOR 04: BLACKWELL NODE</span><span id="state">[CALIBRATION_SYNC]</span><button class="btn" id="wipe">WIPE TELEMETRY (ESC)</button></header>
+ <section class="box" id="main">
+  <div>TRACE LEVEL <span id="tpct">0%</span> <span id="trate"></span><div id="trace"><i id="tbar"></i></div></div>
+  <div id="puzzle"></div>
+  <div id="warn">&nbsp;</div>
+  <div id="pacer" class="box">RESPIRATION PACER<div id="pbar" style="font-size:22px">[=====( O )=====]</div><div id="pmsg">STANDBY</div></div>
+  <div id="sim" style="font-size:12px">SIM CONTROLS (no SDK): <button class="btn" id="bSpike">SPIKE</button> <button class="btn" id="bCalm">HOLD: CALM</button> <button class="btn" id="bFlinch">FLINCH</button> <span style="color:var(--warn)">simulated data is not live signal</span></div>
+ </section>
+ <aside id="rail">
+  <div class="box">BIOMETRIC TELEMETRY <span id="src">[SIM]</span>
+   <video id="cam" muted playsinline hidden></video><div id="nocam" style="padding:20px 0;color:var(--dim)">CAMERA OFF</div>
+   <div>CONFIDENCE: <span id="conf">--</span></div>
+   <div>PULSE (EMA): <span class="big" id="bpm">--</span> <span id="dbpm"></span></div>
+   <div>SLOPE: <span id="slope">--</span></div>
+   <div>BREATH: <span id="br">--</span> /min</div>
+   <div>EXPRESSION: <span id="ex">--</span></div>
+  </div>
+  <div class="box">RAW (dotted) vs EMA (solid) 60s<canvas id="spark" width="280" height="110"></canvas></div>
+ </aside>
+ <footer class="box"><span id="fcam">CAMERA: OFF</span><span>STORAGE: RAM ONLY</span><span>AI CALLS: NONE</span><span id="fpk">PACKETS: 0.0/s</span><button class="btn" id="bCam" style="padding:2px 8px">CAMERA ON/OFF</button><button class="btn" id="bExp" style="padding:2px 8px">EXPORT RUN (JSON)</button></footer>
+</div>
+<div id="fx"></div><div id="flash"></div>
+<div id="ov"><div class="card">
+ <h1>DEAD_SIGNAL // PRE-FLIGHT</h1>
+ <p><b>Content warning:</b> this game deliberately startles you with sudden sounds, screen flashes and fake crashes. Skip it if that is a problem.</p>
+ <ul><li>Camera starts only if you press the camera button. In this build the page shows a local preview only. The SmartSpectra SDK adapter reads the signals.</li>
+ <li>Nothing is stored or uploaded by this page. Telemetry lives in RAM and is cleared with ESC.</li>
+ <li>Without the SDK connected, the game runs on simulated signals (labelled SIM).</li>
+ <li>This is a game. It does not measure health and makes no medical claims.</li>
+ <li>Press P anytime to pause.</li></ul>
+ <p>DIFFICULTY <select id="diff"><option value="0.7">EASY</option><option value="1" selected>NORMAL</option><option value="1.4">HARD</option></select></p><button class="btn" id="go">I UNDERSTAND - BOOT</button>
+</div></div>
+<script>
+"use strict";
+const $=id=>document.getElementById(id),clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+// ---------- BioSignalProcessor (time-based) ----------
+class BioSignalProcessor{
+ constructor(){this.reset()}
+ reset(){this.baseBpm=75;this.baseStd=4;this.baseBr=14;this.ema=null;this.emaBr=null;this.hist=[];this.lastT=null;this.slope=0;this.conf=0;this.shock=0;this.locked=false;this.raw=null;this.threat=0;this.tauUp=4;this.tauDown=1.5}
+ calibrate(s){const v=s.filter(x=>x.conf>=.7&&Number.isFinite(x.bpm));if(v.length<5)return false;
+  const m=v.reduce((a,x)=>a+x.bpm,0)/v.length;const sd=Math.sqrt(v.reduce((a,x)=>a+(x.bpm-m)**2,0)/v.length);
+  this.baseBpm=m;this.baseStd=Math.max(sd,3.5);const b=v.filter(x=>Number.isFinite(x.br));if(b.length)this.baseBr=b.reduce((a,x)=>a+x.br,0)/b.length;this.ema=m;this.emaBr=this.baseBr;return true}
+ update(p,t){const dt=this.lastT==null?.5:clamp((t-this.lastT)/1000,.05,5);this.lastT=t;
+  this.conf=p.conf;this.shock=p.shock||0;this.raw=p.bpm;
+  if(this.ema==null)this.ema=this.baseBpm;
+  if(p.conf<.65||!Number.isFinite(p.bpm)){this.locked=false;const k=1-Math.exp(-dt/20);this.ema+=(this.baseBpm-this.ema)*k;this.slope=0;this.calc();return}
+  this.locked=true;this.hist.push(p.bpm);if(this.hist.length>7)this.hist.shift();
+  const s=[...this.hist].sort((a,b)=>a-b),med=s[s.length>>1],mad=Math.max(s.map(v=>Math.abs(v-med)).sort((a,b)=>a-b)[s.length>>1],1.5);
+  const c=clamp(p.bpm,med-3*mad,med+3*mad),prev=this.ema,tau=c>prev?this.tauUp:this.tauDown;
+  this.ema+=(c-prev)*(1-Math.exp(-dt/tau));this.slope=(this.ema-prev)/dt;
+  if(Number.isFinite(p.br)){this.emaBr=this.emaBr==null?p.br:this.emaBr+(p.br-this.emaBr)*(1-Math.exp(-dt/3))}
+  this.calc()}
+ calc(){const z=(this.ema-this.baseBpm)/this.baseStd;const rec=clamp(this.slope*.08,-.25,.1);this.threat=clamp(z/3+rec,0,1)}
+ get recovering(){return this.slope<-.15}
+ get breathOk(){return this.emaBr!=null&&this.emaBr<this.baseBr*.85}
+}
+const bio=new BioSignalProcessor();
+// ---------- signal sources ----------
+let src="SIM",pkts=[],lastPkt=0,calSamples=[];
+const pktTimes=[];
+window.pushSignal=function(p){ // SDK adapter entry: {bpm,breathingRate,expressionShock,confidence}
+ src="SDK";$("src").textContent="[SDK LIVE]";$("sim").style.display="none";
+ ingest({bpm:p.bpm,br:p.breathingRate,shock:p.expressionShock||0,conf:p.confidence??1})};
+function ingest(p){const t=performance.now();pktTimes.push(t);while(pktTimes.length&&t-pktTimes[0]>5000)pktTimes.shift();
+ if(G.state==="CAL")calSamples.push(p);bio.update(p,t);log.push({t,raw:p.bpm,ema:bio.ema});}
+const sim={a:0,calm:false,flinch:0};
+setInterval(()=>{if(src!=="SIM"||G.paused)return;
+ sim.a=clamp(sim.a-(sim.calm?.12:.03)*.5,0,1);if(sim.flinch>0)sim.flinch-=.5;
+ ingest({bpm:72+38*sim.a+(Math.random()-.5)*5,br:13+6*sim.a-(sim.calm?4:0)+(Math.random()-.5),shock:sim.flinch>0?.9:.05,conf:.9})},500);
+$("bSpike").onclick=()=>sim.a=clamp(sim.a+.4,0,1);$("bFlinch").onclick=()=>sim.flinch=1;
+$("bCalm").onpointerdown=()=>sim.calm=true;addEventListener("pointerup",()=>sim.calm=false);
+// ---------- telemetry log (RAM only) ----------
+let log=[];let peak=0;
+// ---------- audio ----------
+let ac;function stinger(){try{ac=ac||new AudioContext();const o=ac.createOscillator(),g=ac.createGain();o.type="sawtooth";o.frequency.setValueAtTime(900,ac.currentTime);o.frequency.exponentialRampToValueAtTime(70,ac.currentTime+.35);g.gain.setValueAtTime(.25,ac.currentTime);g.gain.exponentialRampToValueAtTime(.001,ac.currentTime+.4);o.connect(g).connect(ac.destination);o.start();o.stop(ac.currentTime+.4)}catch(e){}
+ const f=$("flash");f.style.transition="none";f.style.opacity=.7;requestAnimationFrame(()=>{f.style.transition="opacity .4s";f.style.opacity=0});if(src==="SIM")sim.a=clamp(sim.a+.25,0,1)}
+// ---------- game ----------
+const G={state:"CAL",t:0,trace:0,nodes:0,paused:false,stingerAt:10,sweepT:0,flinchRun:0,input:"",target:"",pT:0,sweepStinger:false,over:null};
+const names={CAL:"[0. CALIBRATION_SYNC]",BREACH:"[1. BREACH_ACTIVE]",SWEEP:"[2. ICE_SWEEP_LOCK]",FLAT:"[3. SIGNAL_FLATLINE]"};
+function newPuzzle(){G.target=Array.from({length:4},()=>("0"+Math.floor(Math.random()*256).toString(16)).slice(-2).toUpperCase()).join("");G.input="";G.pT=9}
+function setState(s){G.state=s;if(s==="FLAT")G.endT=performance.now();$("state").textContent=names[s];G.t=0;$("pacer").classList.toggle("on",s==="SWEEP");
+ if(s==="SWEEP"){G.sweepT=0;G.flinchRun=0;G.sweepStinger=false}
+ if(s==="BREACH"&&!G.target)newPuzzle()}
+function fmt(a){return a.match(/../g).map(x=>"[ "+x+" ]").join(" ")}
+function renderPuzzle(){if(G.state==="CAL"){$("puzzle").innerHTML="&gt; SPOOFING NEURAL ID... stay still, breathe normally ("+Math.max(0,12-Math.floor(G.t))+"s)";return}
+ if(G.state==="SWEEP"){$("puzzle").innerHTML="&gt; <b>HANDS OFF KEYBOARD.</b> KEEP FACE NEUTRAL.";return}
+ if(G.state==="FLAT"){$("puzzle").innerHTML="&gt; <b>CONNECTION SEVERED</b><br>NODES BREACHED: "+G.nodes+" | PEAK PULSE: "+Math.round(peak)+" BPM<br><button class='btn' onclick='restart()'>REBOOT</button>";return}
+ const inp=G.input.padEnd(8,"_");$("puzzle").innerHTML="&gt; INJECTING PAYLOAD ("+G.pT.toFixed(1)+"s)<br>TARGET: "+fmt(G.target)+"<br>INPUT : "+fmt(inp)}
+addEventListener("keydown",e=>{
+ if(e.key==="Escape"){wipe();return}
+ if(e.key==="p"||e.key==="P"){if(!$("ov").classList.contains("hide"))return;G.paused=!G.paused;$("warn").textContent=G.paused?"PAUSED (P)":"\u00a0";return}
+ if(G.paused)return;
+ if(G.state==="SWEEP"){G.over="TYPED DURING SWEEP";return}
+ if(G.state!=="BREACH")return;
+ const k=e.key.toUpperCase();if(!/^[0-9A-F]$/.test(k))return;
+ G.input+=k;const i=G.input.length-1;
+ if(G.target[i]!==k){G.input="";G.trace=clamp(G.trace+3,0,100);return}
+ if(G.input.length===8){G.nodes++;G.trace=clamp(G.trace-10,0,100);newPuzzle()}});
+function wipe(){log=[];calSamples=[];peak=0;bio.reset();bio.baseBpm=75;G.nodes=0;G.trace=0;spark()}
+function restart(){bio.reset();log=[];calSamples=[];peak=0;G.trace=0;G.nodes=0;G.target="";G.over=null;sim.a=0;setState("CAL")}
+window.restart=restart;
+setInterval(()=>{ // 10Hz logic tick
+ if(G.paused||$("ov").classList.contains("hide")===false)return;const dt=.1;G.t+=dt;
+ if(G.state==="CAL"){if(G.t>=12){if(bio.calibrate(calSamples)){setState("BREACH");G.stingerAt=10}else{G.t=0;calSamples=[];$("warn").textContent="NO CLEAN SIGNAL - LOOK AT CAMERA"}}}
+ else if(G.state==="BREACH"){
+  const rate=(.6+5*bio.threat)*(G.diff||1);G.trace=clamp(G.trace+rate*dt,0,100);$("trate").textContent="(+"+rate.toFixed(1)+"%/s)";
+  G.pT-=dt;if(G.pT<=0){G.trace=clamp(G.trace+8,0,100);newPuzzle()}
+  if(G.t>=G.stingerAt){stinger();G.stingerAt=G.t+9+Math.random()*4}
+  $("warn").textContent=G.trace>75?"[!] ICE SWEEP IMMINENT":"\u00a0";
+  if(G.trace>=100)setState("SWEEP")}
+ else if(G.state==="SWEEP"){G.sweepT+=dt;
+  if(!G.sweepStinger&&G.sweepT>=3){G.sweepStinger=true;stinger()}
+  if(G.sweepT>=3&&bio.shock>.6)G.flinchRun++;else G.flinchRun=0;
+  if(G.flinchRun>=3)G.over="FLINCH DETECTED";
+  const good=bio.recovering||bio.breathOk;G.trace=clamp(G.trace+(good?-7:2)*dt,0,100);
+  $("warn").textContent=good?"SIGNATURE STABILISING":"[!] STABILISE: SLOW YOUR BREATHING";
+  if(G.over||G.sweepT>=12){if(!G.over&&G.trace<35){G.trace=30;setState("BREACH");G.pT=9}else{if(!G.over)G.over="TRACE LOCKED";$("warn").textContent=G.over;setState("FLAT")}}}
+ peak=Math.max(peak,bio.ema||0);
+},100);
+// ---------- heartbeat audio: thump at your measured pulse ----------
+let nextBeat=0;
+function heartbeat(){if(!ac||G.paused||G.state==="CAL"||G.state==="FLAT"||!bio.ema)return;const n=performance.now();if(n<nextBeat)return;nextBeat=n+60000/bio.ema;
+ const o=ac.createOscillator(),g=ac.createGain();o.frequency.value=55;g.gain.setValueAtTime(.001,ac.currentTime);g.gain.linearRampToValueAtTime(.1+.3*bio.threat,ac.currentTime+.02);g.gain.exponentialRampToValueAtTime(.001,ac.currentTime+.18);o.connect(g).connect(ac.destination);o.start();o.stop(ac.currentTime+.2)}
+// ---------- render ----------
+let smoothStress=0;
+function spark(){const c=$("spark"),x=c.getContext("2d");x.clearRect(0,0,c.width,c.height);const now=G.state==="FLAT"?G.endT:performance.now(),W=G.state==="FLAT"&&log.length?Math.max(60000,now-log[0].t):60000,pts=log.filter(p=>now-p.t<W);if(pts.length<2)return;
+ const vals=pts.flatMap(p=>[p.raw,p.ema]).filter(Number.isFinite),lo=Math.min(...vals)-5,hi=Math.max(...vals)+5;
+ const X=p=>(1-(now-p.t)/W)*c.width,Y=v=>c.height-(v-lo)/(hi-lo)*c.height;
+ const col=getComputedStyle(document.body).color;x.strokeStyle=col;
+ x.setLineDash([2,3]);x.globalAlpha=.5;x.beginPath();pts.forEach((p,i)=>i?x.lineTo(X(p),Y(p.raw)):x.moveTo(X(p),Y(p.raw)));x.stroke();
+ x.setLineDash([]);x.globalAlpha=1;x.lineWidth=2;x.beginPath();pts.forEach((p,i)=>i?x.lineTo(X(p),Y(p.ema)):x.moveTo(X(p),Y(p.ema)));x.stroke()}
+function frame(){
+ const th=G.state==="CAL"?0:bio.threat;smoothStress+=(th-smoothStress)*.08;
+ const r=document.documentElement.style;r.setProperty("--stress",smoothStress.toFixed(3));r.setProperty("--hue",Math.round(150-smoothStress*125));
+ $("app").classList.toggle("hot",smoothStress>.8);
+ $("tpct").textContent=Math.round(G.trace)+"%";$("tbar").style.width=G.trace+"%";
+ $("bpm").textContent=bio.ema?Math.round(bio.ema):"--";$("dbpm").textContent=bio.ema&&G.state!=="CAL"?"("+(bio.ema-bio.baseBpm>=0?"+":"")+Math.round(bio.ema-bio.baseBpm)+")":"";
+ $("conf").textContent=bio.conf?Math.round(bio.conf*100)+"% "+(bio.locked?"[LOCK]":"[LOST]"):"--";
+ $("slope").textContent=bio.recovering?"\u25BC RECOVERING":bio.slope>.15?"\u25B2 RISING":"\u2014 STEADY";
+ $("br").textContent=bio.emaBr?bio.emaBr.toFixed(0):"--";$("ex").textContent=bio.shock>.6?"FLINCH [!]":"NEUTRAL [OK]";
+ const ph=(performance.now()/1000)%10,s=ph<4?ph/4:1-(ph-4)/6;$("pbar").textContent="["+"=".repeat(Math.round(2+10*(1-s)))+"( O )"+"=".repeat(Math.round(2+10*(1-s)))+"]";
+ $("pmsg").textContent=(ph<4?"INHALE":"EXHALE SLOWLY")+" - TARGET BELOW "+Math.round(bio.baseBr*.85)+"/min";
+ $("fpk").textContent="PACKETS: "+(pktTimes.length/5).toFixed(1)+"/s ["+src+"]";
+ heartbeat();renderPuzzle();spark();requestAnimationFrame(frame)}
+// ---------- camera (local preview only) ----------
+let stream=null;
+$("bCam").onclick=async()=>{const v=$("cam");
+ if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;v.hidden=true;$("nocam").hidden=false;$("fcam").textContent="CAMERA: OFF";return}
+ try{stream=await navigator.mediaDevices.getUserMedia({video:true,audio:false});v.srcObject=stream;await v.play();v.hidden=false;$("nocam").hidden=true;$("fcam").textContent="CAMERA: LOCAL PREVIEW ONLY"}catch(e){$("fcam").textContent="CAMERA: DENIED/UNAVAILABLE"}};
+$("go").onclick=()=>{G.diff=parseFloat($("diff").value);$("ov").classList.add("hide");try{ac=ac||new AudioContext()}catch(e){}};
+$("bExp").onclick=()=>{const t0=log.length?log[0].t:0;const b=new Blob([JSON.stringify({baselineBpm:bio.baseBpm,nodes:G.nodes,samples:log.map(p=>({s:+((p.t-t0)/1000).toFixed(1),raw:p.raw,ema:+p.ema.toFixed(1)}))},null,1)],{type:"application/json"});const a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="dead-signal-run.json";a.click()};
+if(window.bridge)window.bridge.onSignal(p=>window.pushSignal(p));
+setState("CAL");frame();
+</script></body></html>
