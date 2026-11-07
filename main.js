@@ -1,3 +1,4 @@
+require("dotenv").config();
 const {app,BrowserWindow,session}=require('electron');const path=require('path');
 const adapter=require('./src/sdk-adapter');
 function createWindow(){

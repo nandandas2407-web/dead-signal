@@ -1,1 +1,1 @@
-{"name":"dead-signal","version":"1.0.0","description":"Terminal stealth game driven by live pulse, breathing and expressions (Presage SmartSpectra)","main":"main.js","scripts":{"start":"electron ."},"devDependencies":{"electron":"^33.0.0"},"license":"MIT"}
+{"name":"dead-signal","version":"1.0.0","description":"Terminal stealth game driven by live pulse, breathing and expressions (Presage SmartSpectra)","main":"main.js","scripts":{"start":"electron ."},"devDependencies":{"electron":"^33.0.0"},"license":"MIT","dependencies":{"dotenv":"^18.0.9"}}

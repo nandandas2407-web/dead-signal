@@ -11,7 +11,9 @@ function mapPacket(raw){
   };
 }
 function start(emit){
-  // TODO: initialise the SDK with your API key here (read it from an env var, never commit it).
+  const key = process.env.SMARTSPECTRA_API_KEY;
+  if (!key) { console.log('[adapter] No API key set'); return; }
+  // TODO: pass `key` to the SDK init call from the Presage starter.
   console.log('[adapter] SDK not wired: the game runs in SIM mode until emit() is called.');
 }
 module.exports={start,mapPacket};

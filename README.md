@@ -22,3 +22,6 @@ Baseline-relative scoring, time-based asymmetric smoothing, confidence gating, o
 - This app stores nothing on disk and makes no network calls of its own. Run data lives in RAM until you press ESC or quit. Export is manual.
 - SDK processing, SDK telemetry and retention: **TODO, fill in from Presage docs.**
 - No AI services used. Not a medical tool: no diagnosis, no health claims.
+
+## API key
+Copy `.env.example` to `.env` and set `SMARTSPECTRA_API_KEY`. Never commit `.env`.
